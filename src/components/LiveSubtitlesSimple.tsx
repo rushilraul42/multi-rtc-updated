@@ -241,16 +241,20 @@ const LiveSubtitlesSimple: React.FC<LiveSubtitlesSimpleProps> = ({
     });
   }, [remoteStreams.length]);
 
-  if (!SpeechRecognition) {
-    return null;
-  }
+  const handleToggleUserList = () => {
+    if (!SpeechRecognition) {
+      toast.error("Speech Recognition not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+    setShowUserList(!showUserList);
+  };
 
   return (
     <>
       {/* User List Toggle Button */}
       <button
-        onClick={() => setShowUserList(!showUserList)}
-        className="fixed bottom-4 right-4 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-colors z-50"
+        onClick={handleToggleUserList}
+        className="fixed bottom-36 right-4 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-colors z-50"
         title="Manage Subtitles"
       >
         <FaMicrophone className="w-5 h-5" />
@@ -263,7 +267,7 @@ const LiveSubtitlesSimple: React.FC<LiveSubtitlesSimpleProps> = ({
 
       {/* User List Panel */}
       {showUserList && (
-        <div className="fixed bottom-20 right-4 bg-white rounded-lg shadow-2xl p-4 w-72 max-h-96 overflow-y-auto z-50 animate-fade-in">
+        <div className="fixed bottom-52 right-4 bg-white rounded-lg shadow-2xl p-4 w-72 max-h-96 overflow-y-auto z-50 animate-fade-in">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-800">Subtitle Controls</h3>
             <button
@@ -309,7 +313,7 @@ const LiveSubtitlesSimple: React.FC<LiveSubtitlesSimpleProps> = ({
 
       {/* Subtitles Display */}
       {subtitles.length > 0 && (
-        <div className="fixed bottom-20 right-20 max-w-lg space-y-2 z-40">
+        <div className="fixed bottom-56 right-4 max-w-lg space-y-2 z-40">
           {subtitles.map((subtitle) => (
             <div
               key={`${subtitle.name}-${subtitle.timestamp}`}

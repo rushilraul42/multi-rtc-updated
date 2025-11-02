@@ -159,7 +159,9 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
     webcamVideoRef,
     stream,
     callId,
-    beforeCall
+    beforeCall,
+    setStream,
+    localStreamRef
   );
 
   // Initialize start webcam

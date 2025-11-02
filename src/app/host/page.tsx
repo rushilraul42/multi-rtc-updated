@@ -2,7 +2,8 @@
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { FaMicrophone, FaMicrophoneAltSlash, FaVideo, FaVideoSlash, FaCopy, FaCamera, FaPhoneSlash } from "react-icons/fa";
+import { FaMicrophone, FaMicrophoneAltSlash, FaVideo, FaVideoSlash, FaCopy, FaCamera, FaPhoneSlash, FaHome, FaDesktop } from "react-icons/fa";
+import { MdOutlineStopScreenShare } from "react-icons/md";
 import { toast } from "react-hot-toast";
 import AuthWrapper from "@/components/AuthWrapper";
 import ScreenshotView from "@/components/ScreenshotView";
@@ -10,6 +11,7 @@ import ChatBox from "@/components/ChatBox";
 import ScreenRecorder from "@/components/ScreenRecorder";
 import LiveSubtitlesSimple from "@/components/LiveSubtitlesSimple";
 import TranscriptPanel from "@/components/TranscriptPanel";
+import { firestore } from "../firebaseConfig";
 
 // Import all the hooks
 import {
@@ -23,7 +25,9 @@ import {
   useDebugEffect,
   useMediaControlsTranscript,
   useHangup,
-  useHandleCallButtonClick
+  useHandleCallButtonClick,
+  useScreenShareState,
+  useScreenShare
 } from "@/hooks";
 
 type OfferAnswerPair = {
@@ -50,11 +54,15 @@ const Page = () => {
 const TranscriptMeet = () => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { replace } = useRouter();
+  const router = useRouter();
+  const { replace } = router;
 
   const RealTimeTranscript = dynamic(() => import("./realTimeTranscript"), {
     ssr: false,
   });
+
+  // Screen sharing tracking state
+  const [screenSharingUsers, setScreenSharingUsers] = useState<Set<number>>(new Set());
 
   // Initialize all state using hooks
   const {
@@ -102,6 +110,14 @@ const TranscriptMeet = () => {
     setCallLeft
   } = useWebRTCState();
 
+  // Screen share state
+  const {
+    isScreenSharing,
+    setIsScreenSharing,
+    screenStreamFeed,
+    setScreenStreamFeed
+  } = useScreenShareState();
+
   // Initialize helpers
   const { generateShortId, servers } = useWebRTCHelpers();
 
@@ -113,6 +129,21 @@ const TranscriptMeet = () => {
     setRemoteStreams,
     setRemoteVideoRefs,
     setPcs
+  );
+
+  // Screen share hooks
+  const { handleScreenShare } = useScreenShare(
+    isScreenSharing,
+    setIsScreenSharing,
+    screenStreamFeed,
+    setScreenStreamFeed,
+    pcs,
+    webcamVideoRef,
+    stream,
+    callId,
+    beforeCall,
+    setStream,
+    localStreamRef
   );
 
   const { handleCallButtonClick } = useHandleCallButtonClick(
@@ -188,6 +219,26 @@ const TranscriptMeet = () => {
   useStreamEffect(stream, webcamVideoRef);
   useDebugEffect(pcs, nameList || []);
 
+  // Listen for screen sharing updates
+  useEffect(() => {
+    if (!callId) return;
+
+    const callDoc = firestore.collection("calls").doc(callId);
+    const unsubscribe = callDoc.onSnapshot((snapshot) => {
+      const data = snapshot.data();
+      if (!data) return;
+
+      // Check isScreenSharing and screenSharer fields
+      if (data.isScreenSharing && data.screenSharer >= 0) {
+        setScreenSharingUsers(new Set([data.screenSharer]));
+      } else {
+        setScreenSharingUsers(new Set());
+      }
+    });
+
+    return () => unsubscribe();
+  }, [callId]);
+
   // Set up peer connection listeners
   useEffect(() => {
     const listeners = new Map();
@@ -212,9 +263,19 @@ const TranscriptMeet = () => {
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Multi-RTC Conference
-          </h1>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Back to Home"
+            >
+              <FaHome className="w-4 h-4" />
+              <span className="text-sm font-medium">Home</span>
+            </button>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Multi-RTC Conference
+            </h1>
+          </div>
           <div className="flex items-center gap-4">
             <div className={`px-3 py-1 rounded-lg text-sm font-medium ${
               inCall ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-600 border border-gray-200'
@@ -272,6 +333,19 @@ const TranscriptMeet = () => {
                   title="Screenshot"
                 >
                   <FaCamera size={18} />
+                </button>
+
+                <button 
+                  disabled={!inCall}
+                  onClick={handleScreenShare} 
+                  className={`p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isScreenSharing 
+                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100" 
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                  title={isScreenSharing ? 'Stop Sharing Screen' : 'Share Screen'}
+                >
+                  {isScreenSharing ? <FaDesktop size={18} /> : <MdOutlineStopScreenShare size={18} />}
                 </button>
 
                 <button
@@ -344,10 +418,19 @@ const TranscriptMeet = () => {
                 key={index}
                 className="relative bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200"
               >
-                <div className="absolute top-3 left-3 z-10">
+                <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
                   <div className="bg-black/70 px-2 py-1 rounded text-xs font-medium text-white">
-                    {nameList && nameList[index] ? nameList[index] : `Participant ${index + 1}`}
+                    {screenSharingUsers.has(index) 
+                      ? `${nameList && nameList[index] ? nameList[index] : `Participant ${index + 1}`}'s Screen`
+                      : nameList && nameList[index] ? nameList[index] : `Participant ${index + 1}`
+                    }
                   </div>
+                  {screenSharingUsers.has(index) && (
+                    <div className="bg-blue-500 px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1">
+                      <FaDesktop size={10} />
+                      <span>Presenting</span>
+                    </div>
+                  )}
                 </div>
                 <div className="absolute top-3 right-3 z-10">
                   <div className="bg-green-100 p-1 rounded border border-green-200">

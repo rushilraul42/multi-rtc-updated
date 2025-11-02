@@ -9,7 +9,9 @@ export const useScreenShare = (
   webcamVideoRef: React.RefObject<HTMLVideoElement | null>,
   stream: MediaStream | null,
   callId: string | undefined,
-  beforeCall: number
+  beforeCall: number,
+  setStream?: any,
+  localStreamRef?: React.RefObject<MediaStream | null>
 ) => {
   const mergeAudioStreams = async (screenAudioTrack: MediaStreamTrack) => {
     const audioContext = new AudioContext();
@@ -54,42 +56,79 @@ export const useScreenShare = (
       });
 
       setIsScreenSharing(true);
+      setScreenStreamFeed(screenStream);
 
-      setScreenStreamFeed(screenStream); // Store the full screen-sharing MediaStream
-
-      const videoTrack = screenStream.getVideoTracks()[0]; // Extract the video track
+      const videoTrack = screenStream.getVideoTracks()[0];
 
       // Replace the video track for all existing peer connections
-      // pcs.forEach((pc) => {
-      //   const videoSender = pc.getSenders().find((sender) => sender.track?.kind === "video");
-      //   if (videoSender) {
-      //     videoSender.replaceTrack(videoTrack); // Replace the video track
-      //   }
-      // });
+      // This makes the screen visible to everyone in their existing video feed
+      for (const pc of pcs) {
+        const videoSender = pc.getSenders().find((sender) => sender.track?.kind === "video");
+        if (videoSender) {
+          try {
+            await videoSender.replaceTrack(videoTrack);
+            console.log("Video track replaced with screen share");
+            
+            // Create new offer to renegotiate with new track
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            // Update the offer in Firestore to trigger renegotiation
+            console.log("Renegotiating with screen share track");
+          } catch (err) {
+            console.error("Error replacing video track:", err);
+          }
+        }
+      }
 
-      // Merge audio sources
-      const screenAudioTrack = screenStream.getAudioTracks()[0]; // Extract the audio track
-      console.log("Screen audio track is ", screenAudioTrack);
-
+      // Merge audio if available
+      const screenAudioTrack = screenStream.getAudioTracks()[0];
       if (screenAudioTrack) {
         await mergeAudioStreams(screenAudioTrack);
       }
 
-      // Update the local video element (if displaying the screenshare locally)
-      // if (webcamVideoRef.current) {
-      //   webcamVideoRef.current.srcObject = screenStream;
-      // }
+      // Update local video to show screen
+      if (webcamVideoRef.current) {
+        webcamVideoRef.current.srcObject = screenStream;
+      }
 
-      // Handle the end of screen sharing
+      // CRITICAL: Update stream references so new joiners get screen share
+      if (setStream) {
+        setStream(screenStream);
+      }
+      if (localStreamRef && localStreamRef.current) {
+        // Create a new stream that combines screen video with original audio
+        const combinedStream = new MediaStream();
+        
+        // Add screen video track
+        screenStream.getVideoTracks().forEach(track => {
+          combinedStream.addTrack(track);
+        });
+        
+        // Add original audio track (not screen audio)
+        if (stream) {
+          stream.getAudioTracks().forEach(track => {
+            combinedStream.addTrack(track);
+          });
+        }
+        
+        localStreamRef.current = combinedStream;
+        console.log("Updated localStreamRef with screen share for new joiners");
+      }
+
+      // Handle when screen share stops
       videoTrack.onended = () => {
         stopScreenShare();
       };
 
-      const callDocHost = firestore.collection("calls").doc(callId);
-      await callDocHost.update({
+      // Update Firestore to indicate who is screen sharing
+      const callDoc = firestore.collection("calls").doc(callId);
+      await callDoc.update({
         isScreenSharing: true,
         screenSharer: beforeCall,
       });
+
+      console.log("Screen share started and refs updated");
     } catch (error) {
       console.error("Error starting screen share:", error);
       setIsScreenSharing(false);
@@ -102,22 +141,42 @@ export const useScreenShare = (
       const videoTrack = stream.getVideoTracks()[0];
       const screenTrack = screenStreamFeed?.getVideoTracks()[0];
       screenTrack?.stop();
-      // Replace video track for all peer connections
-      pcs.forEach(async (pc) => {
+      
+      // Replace screen share track back with webcam video
+      for (const pc of pcs) {
         const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) {
-          await sender.replaceTrack(videoTrack);
+        if (sender && videoTrack) {
+          try {
+            await sender.replaceTrack(videoTrack);
+            console.log("Restored webcam video track");
+          } catch (err) {
+            console.error("Error restoring video track:", err);
+          }
         }
-      });
+      }
 
+      // Restore webcam feed to local video
       if (webcamVideoRef.current) {
         webcamVideoRef.current.srcObject = stream;
       }
-    }
-    setIsScreenSharing(false);
 
-    const callDocHost = firestore.collection("calls").doc(callId);
-    await callDocHost.update({
+      // Restore original stream references
+      if (setStream) {
+        setStream(stream);
+      }
+      if (localStreamRef) {
+        localStreamRef.current = stream;
+        console.log("Restored original stream in localStreamRef");
+      }
+    }
+    
+    setIsScreenSharing(false);
+    setScreenStreamFeed(null);
+
+    // Update Firestore
+    const callDoc = firestore.collection("calls").doc(callId);
+    await callDoc.update({
+      isScreenSharing: false,
       screenSharer: -1,
     });
   };

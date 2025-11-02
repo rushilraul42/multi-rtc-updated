@@ -189,9 +189,22 @@ const AudioRecordingDialog: React.FC<Props> = ({ callId }) => {
     try {
       toast.loading("Connecting to websocket");
       const response = await fetch("/api/getToken", { method: "POST" });
+      
+      // Check if response is OK
+      if (!response.ok) {
+        toast.dismiss();
+        const errorData = await response.json().catch(() => ({ error: "API configuration error" }));
+        toast.error(errorData.error || "Failed to connect to transcription service");
+        console.error("API Error:", errorData.error);
+        return;
+      }
+
       const data = await response.json();
+      
       if (data.error) {
-        alert(data.error);
+        toast.dismiss();
+        toast.error(data.error);
+        console.error("Token Error:", data.error);
         return;
       }
 
@@ -205,16 +218,23 @@ const AudioRecordingDialog: React.FC<Props> = ({ callId }) => {
         toast.success("Connected");
       };
       newSocket.onmessage = handleWebSocketMessage;
-      newSocket.onerror = (event) => console.error("WebSocket error:", event);
+      newSocket.onerror = (event) => {
+        console.error("WebSocket error:", event);
+        toast.error("WebSocket connection error");
+      };
       newSocket.onclose = () => {
         console.log("WebSocket disconnected");
-        initWebSocket();
+        // Don't auto-reconnect if there was an error
+        if (socket.current?.readyState === WebSocket.OPEN) {
+          initWebSocket();
+        }
       };
 
       socket.current = newSocket;
     } catch (error) {
       console.error("Error initializing WebSocket:", error);
-      alert("Error initializing WebSocket");
+      toast.dismiss();
+      toast.error("Failed to initialize transcription service. Check API configuration.");
     }
   };
 
