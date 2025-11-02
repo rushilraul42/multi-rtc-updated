@@ -25,7 +25,7 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     );
   }
 
-  if (user?.email !== "admin@gmail.com") {
+  if (!user) {
     return <Login />;
   }
 

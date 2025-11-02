@@ -6,6 +6,10 @@ import { FaMicrophone, FaMicrophoneAltSlash, FaVideo, FaVideoSlash, FaCopy, FaCa
 import { toast } from "react-hot-toast";
 import AuthWrapper from "@/components/AuthWrapper";
 import ScreenshotView from "@/components/ScreenshotView";
+import ChatBox from "@/components/ChatBox";
+import ScreenRecorder from "@/components/ScreenRecorder";
+import LiveSubtitlesSimple from "@/components/LiveSubtitlesSimple";
+import TranscriptPanel from "@/components/TranscriptPanel";
 
 // Import all the hooks
 import {
@@ -281,9 +285,9 @@ const TranscriptMeet = () => {
                 </button>
               </div>
 
-              {/* Real Time Transcript */}
+              {/* Screen Recording */}
               <div className="lg:ml-6 lg:pl-6 lg:border-l border-gray-200">
-                <RealTimeTranscript callId={callId} remoteStreams={remoteStreams} />
+                <ScreenRecorder />
               </div>
             </div>
           </div>
@@ -384,6 +388,15 @@ const TranscriptMeet = () => {
           </div>
         )}
       </div>
+
+      {/* Chat Box */}
+      {callId && <ChatBox callId={callId} myName="Host" />}
+
+      {/* Live Subtitles */}
+      {inCall && <LiveSubtitlesSimple remoteStreams={remoteStreams.filter((s): s is MediaStream => s !== null)} names={nameList} />}
+      
+      {/* Transcript Panel */}
+      {inCall && <TranscriptPanel />}
     </div>
   );
 };

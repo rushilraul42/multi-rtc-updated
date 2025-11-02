@@ -27,16 +27,71 @@ export const useMediaControls = (
   };
 
   const handleMicToggle = async () => {
-    console.log("Mic status is ", micEnabled);
-    setMicEnabled(!micEnabled);
-    sessionStorage.setItem("micEnabled", (!micEnabled).toString());
-    console.log(stream);
+    console.log("=== MIC TOGGLE START (HOST) ===");
+    console.log("Current mic status:", micEnabled);
+    console.log("Stream exists:", !!stream);
+    console.log("Number of peer connections:", pcs.length);
+    
+    const newMicState = !micEnabled;
+    setMicEnabled(newMicState);
+    sessionStorage.setItem("micEnabled", newMicState.toString());
+    
+    let audioTrackFound = false;
+    let allAudioTracks: MediaStreamTrack[] = [];
+    
     if (stream) {
       const audioTrack = stream.getTracks().find((track: MediaStreamTrack) => track.kind === "audio");
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
+        allAudioTracks.push(audioTrack);
+        audioTrack.enabled = newMicState;
+        audioTrackFound = true;
+        console.log(`✓ Stream audio track ${newMicState ? 'enabled' : 'disabled'}, ID: ${audioTrack.id}`);
+      } else {
+        console.log("✗ No audio track in stream");
       }
     }
+    
+    // Update all peer connections - disable the sender's track directly
+    let peerConnectionsUpdated = 0;
+    pcs.forEach((pc, index) => {
+      const senders = pc.getSenders();
+      console.log(`Peer ${index} has ${senders.length} senders`);
+      
+      senders.forEach((sender, senderIndex) => {
+        if (sender.track?.kind === "audio") {
+          sender.track.enabled = newMicState;
+          peerConnectionsUpdated++;
+          console.log(`✓ Peer ${index} sender ${senderIndex} audio ${newMicState ? 'enabled' : 'disabled'}, Track ID: ${sender.track.id}`);
+        }
+      });
+    });
+    
+    console.log(`Total audio tracks found: ${allAudioTracks.length}`);
+    console.log(`Updated ${peerConnectionsUpdated} peer connection audio senders`);
+    
+    // Verify the state
+    setTimeout(() => {
+      console.log("=== VERIFICATION (HOST) ===");
+      allAudioTracks.forEach((track, i) => {
+        console.log(`Audio track ${i} enabled state: ${track.enabled}`);
+      });
+      pcs.forEach((pc, index) => {
+        pc.getSenders().forEach((sender) => {
+          if (sender.track?.kind === "audio") {
+            console.log(`Peer ${index} audio sender enabled: ${sender.track.enabled}`);
+          }
+        });
+      });
+    }, 100);
+    
+    if (!audioTrackFound && peerConnectionsUpdated === 0) {
+      console.error("⚠️ WARNING: No audio tracks found to toggle!");
+      toast.error("Microphone not initialized. Please refresh and allow camera/mic access.");
+    } else {
+      toast.success(newMicState ? "Microphone on" : "Microphone muted");
+    }
+    
+    console.log("=== MIC TOGGLE END (HOST) ===");
   };
 
   const handleVideoToggle = async () => {
@@ -47,22 +102,31 @@ export const useMediaControls = (
     if (!videoEnabled) {
       // Enable video
       try {
-        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // Only get video track, not audio (to preserve mic mute state)
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
   
         if (webcamVideoRef.current) {
-          webcamVideoRef.current.srcObject = newStream;
+          webcamVideoRef.current.srcObject = stream; // Keep existing stream
         }
   
         if (stream) {
           const existingVideoTrack = stream.getVideoTracks()[0];
           if (existingVideoTrack) stream.removeTrack(existingVideoTrack);
   
-          stream.addTrack(newStream.getVideoTracks()[0]);
+          const newVideoTrack = newStream.getVideoTracks()[0];
+          stream.addTrack(newVideoTrack);
+          
+          // Stop the old video stream
+          newStream.getTracks().forEach(track => {
+            if (track.kind === 'video' && track !== newVideoTrack) {
+              track.stop();
+            }
+          });
         }
   
         pcs.forEach((pc) => {
           const sender = pc.getSenders().find((sender) => sender.track?.kind === "video");
-          sender?.replaceTrack(newStream.getVideoTracks()[0]);
+          sender?.replaceTrack(stream?.getVideoTracks()[0] || null);
         });
   
         console.log("Stream tracks after enabling is ", stream?.getVideoTracks());
@@ -97,29 +161,22 @@ export const useMediaControls = (
           };
           keepVideoActive();
   
-          let audioStream = null;
-          try {
-            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          } catch (error) {
-            console.error("Error accessing microphone:", error);
-          }
-  
           const videoStream = canvas.captureStream();
   
           if (stream) {
+            // Preserve current audio state before replacing video
+            const currentAudioTracks = stream.getAudioTracks();
+            const audioEnabled = currentAudioTracks.length > 0 ? currentAudioTracks[0].enabled : true;
+            
             // Remove old video track
             stream.getVideoTracks().forEach(track => stream.removeTrack(track));
             stream.addTrack(videoStream.getVideoTracks()[0]);
   
-            // Replace audio track if available
-            if (audioStream) {
-              const existingAudioTracks = stream.getAudioTracks();
-              if (existingAudioTracks.length > 0) {
-                existingAudioTracks.forEach(track => stream.removeTrack(track));
-                stream.addTrack(audioStream.getAudioTracks()[0]);
-              } else {
-                stream.addTrack(audioStream.getAudioTracks()[0]);
-              }
+            // IMPORTANT: Keep existing audio tracks and their enabled state
+            // Don't create new audio stream - preserve the mute state!
+            if (currentAudioTracks.length > 0) {
+              console.log(`Preserving audio track with enabled state: ${audioEnabled}`);
+              // Audio tracks are already in the stream, just keep them
             }
   
             if (webcamVideoRef.current) {

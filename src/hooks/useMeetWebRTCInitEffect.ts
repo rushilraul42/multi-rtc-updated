@@ -104,8 +104,17 @@ export const useMeetWebRTCInitEffect = (
             const audioTrack = stream.getTracks().find((track: MediaStreamTrack) => track.kind === "audio");
             if (audioTrack) audioTrack.enabled = false;
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error accessing webcam:", error);
+          if (error.name === "NotAllowedError") {
+            alert("Camera/Microphone access denied. Please allow permissions in your browser settings and refresh the page.");
+          } else if (error.name === "NotFoundError") {
+            alert("No camera or microphone found. Please connect a device and refresh.");
+          } else if (error.name === "NotReadableError") {
+            alert("Camera/Microphone is already in use by another application.");
+          } else {
+            alert("Error accessing camera/microphone: " + error.message);
+          }
         }
   
         if (answerButtonRef.current) answerButtonRef.current.disabled = false;

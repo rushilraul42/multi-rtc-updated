@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { auth } from "../firebaseConfig";
 import { useAuth } from "@/context/authContext";
 import NameDialog from "@/components/NameDialog";
+import ChatBox from "@/components/ChatBox";
 
 // Import all the hooks
 import {
@@ -269,8 +270,8 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
-        {/* Control Panel */}
-        {accessGiven && (
+        {/* Control Panel - Show when camera ready OR when in call */}
+        {(accessGiven || inCall) && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-lg">
               <div className="flex gap-3">
@@ -426,6 +427,9 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
           </div>
         )}
       </div>
+
+      {/* Chat Box */}
+      {callId && <ChatBox callId={callId} myName={myName} />}
     </div>
   );
 };

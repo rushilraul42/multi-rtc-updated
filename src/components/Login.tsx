@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/app/firebaseConfig";
 import toast from "react-hot-toast";
 
@@ -8,21 +8,36 @@ function Login() {
   const [userInfo, setUserInfo] = useState<{ email: string; password: string }>(
     { email: "", password: "" }
   );
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const signIn = () => {
     signInWithEmailAndPassword(auth, userInfo.email, userInfo.password)
       .then((userCredential) => {
         const user = userCredential.user;
-        if (user.email === "admin@gmail.com") {
-          toast.success("Signed in successfully!");
-          console.log("ADMIN LOGGED IN", user);
-        } else {
-          toast.error("Error signing in! Only admin is allowed.");
-          console.error("Unauthorized access attempt by:", user.email);
-        }
+        toast.success("Signed in successfully!");
+        console.log("User logged in:", user.email);
       })
       .catch((error) => {
-        toast.error("Error signing in!");
+        toast.error("Error signing in! Check your credentials.");
+        console.error(error.code, " ", error.message);
+      });
+  };
+
+  const signUp = () => {
+    createUserWithEmailAndPassword(auth, userInfo.email, userInfo.password)
+      .then((userCredential) => {
+        const user = userCredential.user;
+        toast.success("Account created and signed in successfully!");
+        console.log("New user created:", user.email);
+      })
+      .catch((error) => {
+        if (error.code === "auth/email-already-in-use") {
+          toast.error("Email already in use!");
+        } else if (error.code === "auth/weak-password") {
+          toast.error("Password should be at least 6 characters!");
+        } else {
+          toast.error("Error creating account!");
+        }
         console.error(error.code, " ", error.message);
       });
   };
@@ -33,7 +48,9 @@ function Login() {
         Welcome to MultiRTC
       </p>
       <div className="flex flex-col gap-6 items-center justify-center w-full max-w-md p-8 bg-white rounded-lg border border-gray-300 shadow-md">
-        <p className="text-xl font-semibold text-gray-700">Sign In</p>
+        <p className="text-xl font-semibold text-gray-700">
+          {isSignUp ? "Sign Up" : "Sign In"}
+        </p>
         <input
           className="w-full px-4 py-2 text-gray-800 placeholder-gray-500 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Email"
@@ -54,9 +71,17 @@ function Login() {
         />
         <button
           className="w-full px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          onClick={signIn}
+          onClick={isSignUp ? signUp : signIn}
         >
-          Login
+          {isSignUp ? "Create Account" : "Login"}
+        </button>
+        <button
+          className="text-sm text-blue-600 hover:text-blue-700 underline"
+          onClick={() => setIsSignUp(!isSignUp)}
+        >
+          {isSignUp
+            ? "Already have an account? Sign In"
+            : "Don't have an account? Sign Up"}
         </button>
       </div>
     </div>
