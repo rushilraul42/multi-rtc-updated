@@ -10,44 +10,11 @@ export const useScreenShare = (
   stream: MediaStream | null,
   callId: string | undefined,
   beforeCall: number,
-  setStream?: any,
-  localStreamRef?: React.RefObject<MediaStream | null>
+  remoteStreams: (MediaStream | null)[],
+  setRemoteStreams: any,
+  remoteVideoRefs: (React.RefObject<HTMLVideoElement> | null)[],
+  setRemoteVideoRefs: any
 ) => {
-  const mergeAudioStreams = async (screenAudioTrack: MediaStreamTrack) => {
-    const audioContext = new AudioContext();
-
-    // Ensure AudioContext is running
-    await audioContext.resume();
-
-    // Get local audio (microphone) stream
-    const localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    const localAudioSource = audioContext.createMediaStreamSource(localAudioStream);
-
-    // Get screen share audio stream
-    const screenAudioSource = audioContext.createMediaStreamSource(new MediaStream([screenAudioTrack]));
-
-    // Create a destination node to combine audio
-    const destination = audioContext.createMediaStreamDestination();
-
-    // Connect both audio sources to the destination
-    localAudioSource.connect(destination);
-    screenAudioSource.connect(destination);
-
-    // Get the combined audio stream
-    const combinedAudioStream = destination.stream;
-
-    // Replace the audio track in each peer connection with the combined audio track
-    const audioTrack = combinedAudioStream.getAudioTracks()[0];
-    pcs.forEach((pc) => {
-      const audioSender = pc.getSenders().find((sender) => sender.track?.kind === "audio");
-      if (audioSender) {
-        audioSender.replaceTrack(audioTrack); // Replace each audio sender's track
-      }
-    });
-
-    console.log("Combined audio stream sent to peer connections");
-  };
-
   const startScreenShare = async () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -58,127 +25,101 @@ export const useScreenShare = (
       setIsScreenSharing(true);
       setScreenStreamFeed(screenStream);
 
-      const videoTrack = screenStream.getVideoTracks()[0];
+      const screenVideoTrack = screenStream.getVideoTracks()[0];
 
-      // Replace the video track for all existing peer connections
-      // This makes the screen visible to everyone in their existing video feed
+      // Replace video track in all peer connections to send screen to remote users
       for (const pc of pcs) {
         const videoSender = pc.getSenders().find((sender) => sender.track?.kind === "video");
         if (videoSender) {
           try {
-            await videoSender.replaceTrack(videoTrack);
-            console.log("Video track replaced with screen share");
-            
-            // Create new offer to renegotiate with new track
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            
-            // Update the offer in Firestore to trigger renegotiation
-            console.log("Renegotiating with screen share track");
+            await videoSender.replaceTrack(screenVideoTrack);
+            console.log("Replaced video track with screen share for remote peer");
           } catch (err) {
             console.error("Error replacing video track:", err);
           }
         }
       }
 
-      // Merge audio if available
-      const screenAudioTrack = screenStream.getAudioTracks()[0];
-      if (screenAudioTrack) {
-        await mergeAudioStreams(screenAudioTrack);
-      }
+      // Store screen stream in Firestore with a unique identifier
+      const callDoc = firestore.collection("calls").doc(callId);
+      await callDoc.update({
+        [`screenShare_${beforeCall}`]: {
+          active: true,
+          sharerIndex: beforeCall,
+          timestamp: Date.now(),
+        },
+      });
 
-      // Update local video to show screen
-      if (webcamVideoRef.current) {
-        webcamVideoRef.current.srcObject = screenStream;
-      }
-
-      // CRITICAL: Update stream references so new joiners get screen share
-      if (setStream) {
-        setStream(screenStream);
-      }
-      if (localStreamRef && localStreamRef.current) {
-        // Create a new stream that combines screen video with original audio
-        const combinedStream = new MediaStream();
-        
-        // Add screen video track
-        screenStream.getVideoTracks().forEach(track => {
-          combinedStream.addTrack(track);
-        });
-        
-        // Add original audio track (not screen audio)
-        if (stream) {
-          stream.getAudioTracks().forEach(track => {
-            combinedStream.addTrack(track);
-          });
-        }
-        
-        localStreamRef.current = combinedStream;
-        console.log("Updated localStreamRef with screen share for new joiners");
-      }
+      // Add screen share as a virtual remote stream locally (so sharer sees both their camera and screen)
+      const newRemoteStreams = [...remoteStreams, screenStream];
+      setRemoteStreams(newRemoteStreams);
+      
+      // Create a video element for the screen share
+      const newRemoteVideoRefs = [...remoteVideoRefs, null];
+      setRemoteVideoRefs(newRemoteVideoRefs);
 
       // Handle when screen share stops
-      videoTrack.onended = () => {
+      screenVideoTrack.onended = () => {
         stopScreenShare();
       };
 
-      // Update Firestore to indicate who is screen sharing
-      const callDoc = firestore.collection("calls").doc(callId);
-      await callDoc.update({
-        isScreenSharing: true,
-        screenSharer: beforeCall,
-      });
-
-      console.log("Screen share started and refs updated");
+      console.log("Screen share started - sent to remote peers and added locally");
     } catch (error) {
       console.error("Error starting screen share:", error);
       setIsScreenSharing(false);
     }
   };
 
-  // Modify the stopScreenShare function:
   const stopScreenShare = async () => {
+    // Stop all tracks in the screen stream
+    if (screenStreamFeed) {
+      screenStreamFeed.getTracks().forEach((track) => track.stop());
+    }
+
+    // Replace screen share track back with webcam video in all peer connections
     if (stream) {
-      const videoTrack = stream.getVideoTracks()[0];
-      const screenTrack = screenStreamFeed?.getVideoTracks()[0];
-      screenTrack?.stop();
+      const webcamVideoTrack = stream.getVideoTracks()[0];
       
-      // Replace screen share track back with webcam video
       for (const pc of pcs) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (sender && videoTrack) {
+        const videoSender = pc.getSenders().find((sender) => sender.track?.kind === "video");
+        if (videoSender && webcamVideoTrack) {
           try {
-            await sender.replaceTrack(videoTrack);
-            console.log("Restored webcam video track");
+            await videoSender.replaceTrack(webcamVideoTrack);
+            console.log("Restored webcam video track for remote peer");
           } catch (err) {
             console.error("Error restoring video track:", err);
           }
         }
       }
-
-      // Restore webcam feed to local video
-      if (webcamVideoRef.current) {
-        webcamVideoRef.current.srcObject = stream;
-      }
-
-      // Restore original stream references
-      if (setStream) {
-        setStream(stream);
-      }
-      if (localStreamRef) {
-        localStreamRef.current = stream;
-        console.log("Restored original stream in localStreamRef");
-      }
     }
+
+    // Remove screen share from remote streams (local virtual participant)
+    const screenShareIndex = remoteStreams.findIndex(
+      (s) => s && s.id === screenStreamFeed?.id
+    );
     
+    if (screenShareIndex !== -1) {
+      const newRemoteStreams = remoteStreams.filter((_, idx) => idx !== screenShareIndex);
+      const newRemoteVideoRefs = remoteVideoRefs.filter((_, idx) => idx !== screenShareIndex);
+      
+      setRemoteStreams(newRemoteStreams);
+      setRemoteVideoRefs(newRemoteVideoRefs);
+    }
+
     setIsScreenSharing(false);
     setScreenStreamFeed(null);
 
-    // Update Firestore
+    // Update Firestore - remove the screen share entry
     const callDoc = firestore.collection("calls").doc(callId);
     await callDoc.update({
-      isScreenSharing: false,
-      screenSharer: -1,
+      [`screenShare_${beforeCall}`]: {
+        active: false,
+        sharerIndex: beforeCall,
+        timestamp: Date.now(),
+      },
     });
+
+    console.log("Screen share stopped");
   };
 
   const handleScreenShare = () => {
@@ -193,6 +134,5 @@ export const useScreenShare = (
     handleScreenShare,
     startScreenShare,
     stopScreenShare,
-    mergeAudioStreams,
   };
 };

@@ -150,7 +150,7 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
   );
 
   // Initialize screen share functionality
-  const { startScreenShare, stopScreenShare, handleScreenShare, mergeAudioStreams } = useScreenShare(
+  const { startScreenShare, stopScreenShare, handleScreenShare } = useScreenShare(
     isScreenSharing,
     setIsScreenSharing,
     screenStreamFeed,
@@ -160,8 +160,10 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
     stream,
     callId,
     beforeCall,
-    setStream,
-    localStreamRef
+    remoteStreams,
+    setRemoteStreams,
+    remoteVideoRefs,
+    setRemoteVideoRefs
   );
 
   // Initialize start webcam

@@ -142,8 +142,10 @@ const TranscriptMeet = () => {
     stream,
     callId,
     beforeCall,
-    setStream,
-    localStreamRef
+    remoteStreams,
+    setRemoteStreams,
+    remoteVideoRefs,
+    setRemoteVideoRefs
   );
 
   const { handleCallButtonClick } = useHandleCallButtonClick(
