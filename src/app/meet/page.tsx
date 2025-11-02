@@ -247,41 +247,6 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
     }
   }, [startWebcam, handleAnswerButtonClick]);
 
-  // Clean up on page unload/close
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (inCall) {
-        // Call hangup synchronously - Firebase batch operations are more reliable
-        hangup();
-        
-        // Small delay to ensure Firebase operations complete
-        const start = Date.now();
-        while (Date.now() - start < 100) {
-          // Blocking wait to allow Firebase to send data
-        }
-      }
-      // Clean up join process listener
-      if ((window as any).cleanupJoinProcess) {
-        (window as any).cleanupJoinProcess();
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && inCall) {
-        // User switched tabs or minimized - good opportunity to cleanup
-        hangup();
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [inCall, hangup]);
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Header */}
