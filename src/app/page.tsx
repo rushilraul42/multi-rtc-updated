@@ -1,24 +1,34 @@
 "use client";
 import Login from "@/components/Login";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/authContext";
-import {  useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 const Page = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !loading) {
       router.replace("/host");
     }
-  }, [loading, user, router]);
+  }, [mounted, loading, router]);
 
-  if (loading) {
-    return <div>Loading...</div>;
+  // Prevent hydration mismatch by showing consistent loading state
+  if (!mounted || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
   }
 
-  return null; 
+  return null;
 };
 
 export default Page;

@@ -26,8 +26,10 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("user state changed");
       setUser(user);
@@ -37,9 +39,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => unsubscribe();
   }, []);
 
+  // Prevent hydration mismatch by rendering loading state consistently
+  if (!mounted) {
+    return (
+      <AuthContext.Provider value={{ user: null, loading: true }}>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-gray-600">Loading...</div>
+        </div>
+      </AuthContext.Provider>
+    );
+  }
+
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useRef } from 'react';
 
 interface NameDialogProps {
@@ -7,14 +8,18 @@ interface NameDialogProps {
 const NameDialog: React.FC<NameDialogProps> = ({ setMyName }) => {
   const [inputValue, setInputValue] = useState<string>('');
   const [showDialog, setShowDialog] = useState<boolean>(true);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     // Check if a name is already stored in session storage
-    const storedName = sessionStorage.getItem('userName');
-    if (storedName) {
-      setMyName(storedName);
-      setShowDialog(false);
+    if (typeof window !== 'undefined') {
+      const storedName = sessionStorage.getItem('userName');
+      if (storedName) {
+        setMyName(storedName);
+        setShowDialog(false);
+      }
     }
   }, [setMyName]);
 
@@ -27,13 +32,16 @@ const NameDialog: React.FC<NameDialogProps> = ({ setMyName }) => {
   const handleSubmit = () => {
     if (inputValue.trim()) {
       // Store the name in session storage
-      sessionStorage.setItem('userName', inputValue);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('userName', inputValue);
+      }
       setMyName(inputValue); // This updates the parent's state
       setShowDialog(false);
     }
   };
 
-  if (!showDialog) {
+  // Prevent hydration mismatch
+  if (!mounted || !showDialog) {
     return null;
   }
 

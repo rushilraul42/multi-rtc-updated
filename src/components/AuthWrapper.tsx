@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/context/authContext";
 import Login from "@/components/Login";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -10,15 +10,23 @@ interface AuthWrapperProps {
 
 const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
   const { user, loading } = useAuth();
+  const [mounted, setMounted] = useState(false);
 
-  if (loading) {
-    return <div>Loading...</div>;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Prevent hydration mismatch
+  if (!mounted || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
   }
 
-  if (user?.email!="admin@gmail.com") {
+  if (user?.email !== "admin@gmail.com") {
     return <Login />;
-  }else{
-    console.log(user)
   }
 
   return <>{children}</>;
