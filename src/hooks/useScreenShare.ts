@@ -22,6 +22,10 @@ export const useScreenShare = (
         audio: true,
       });
 
+      if (!screenStream) {
+        throw new Error("Failed to get screen stream");
+      }
+
       setIsScreenSharing(true);
       setScreenStreamFeed(screenStream);
 
@@ -64,9 +68,21 @@ export const useScreenShare = (
       };
 
       console.log("Screen share started - sent to remote peers and added locally");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error starting screen share:", error);
       setIsScreenSharing(false);
+      
+      // Don't throw toast errors here - let the component handle it
+      // Just return the error type for the component to display appropriate message
+      if (error.name === 'NotAllowedError') {
+        console.log("Screen share permission denied by user");
+      } else if (error.name === 'NotFoundError') {
+        console.log("No screen sharing source available");
+      } else if (error.name === 'NotSupportedError') {
+        console.log("Screen sharing not supported on this browser");
+      } else {
+        console.log("Unknown screen share error:", error.message);
+      }
     }
   };
 

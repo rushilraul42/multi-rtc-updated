@@ -7,11 +7,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "./firebaseConfig";
 import { 
   FaVideo, 
-  FaUsers, 
   FaChalkboardTeacher, 
-  FaListAlt, 
-  FaEye, 
-  FaClipboardList,
   FaSignInAlt,
   FaSignOutAlt,
   FaRocket
@@ -125,102 +121,57 @@ const Page = () => {
         )}
       </section>
 
-      {/* Features Grid */}
+      {/* Main Feature */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h3 className="text-3xl font-bold text-center text-gray-900 mb-12">
-          Platform Features
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Host Meeting */}
+        <div className="flex justify-center">
+          {/* Host Meeting - Centered */}
           <div 
             onClick={() => navigateTo("/host")}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-blue-500"
+            className="bg-white rounded-2xl shadow-xl p-10 hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-blue-500 max-w-2xl w-full"
           >
-            <div className="bg-blue-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <FaChalkboardTeacher className="w-6 h-6 text-blue-600" />
-            </div>
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">Host Meeting</h4>
-            <p className="text-gray-600 mb-4">
-              Start a new conference, control settings, and manage participants
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">Screen Share</span>
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded">Recording</span>
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">Subtitles</span>
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-gradient-to-br from-blue-400 to-blue-600 w-20 h-20 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                <FaChalkboardTeacher className="w-10 h-10 text-white" />
+              </div>
+              <h4 className="text-3xl font-bold text-gray-900 mb-4">Host Meeting</h4>
+              <p className="text-lg text-gray-600 mb-6 max-w-lg">
+                Start a new conference with real-time transcription, AI-powered interview assistance, screen sharing, and multi-participant support
+              </p>
+              <div className="flex flex-wrap gap-3 justify-center mb-8">
+                <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-200">
+                  🖥️ Screen Share
+                </span>
+                <span className="px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">
+                  🎙️ Recording
+                </span>
+                <span className="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium border border-purple-200">
+                  📝 AI Transcription
+                </span>
+              </div>
+              <button className="w-full max-w-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-4 px-8 rounded-xl transition-all transform hover:scale-105 shadow-lg text-lg">
+                Start Meeting Now
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Answer Pane */}
-          <div 
-            onClick={() => navigateTo("/answerPane")}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-purple-500"
-          >
-            <div className="bg-purple-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <FaClipboardList className="w-6 h-6 text-purple-600" />
+        {/* Key Features */}
+        <div className="mt-16 max-w-4xl mx-auto">
+          <h3 className="text-2xl font-bold text-center text-gray-900 mb-10">
+            Platform Capabilities
+          </h3>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl p-6 shadow-md text-center">
+              <div className="text-4xl mb-3">🎥</div>
+              <h5 className="font-semibold text-gray-900 mb-2">Multi-Peer Video</h5>
+              <p className="text-sm text-gray-600">Connect with multiple participants using WebRTC technology</p>
             </div>
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">Answer Pane</h4>
-            <p className="text-gray-600 mb-4">
-              Interactive Q&A and response management system
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">Q&A</span>
-              <span className="px-2 py-1 bg-pink-100 text-pink-700 rounded">Responses</span>
+            <div className="bg-white rounded-xl p-6 shadow-md text-center">
+              <div className="text-4xl mb-3">🎤</div>
+              <h5 className="font-semibold text-gray-900 mb-2">Real-Time Transcription</h5>
+              <p className="text-sm text-gray-600">Automatic speech-to-text powered by Whisper AI</p>
             </div>
-          </div>
-
-          {/* Call List */}
-          <div 
-            onClick={() => navigateTo("/callList")}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-indigo-500"
-          >
-            <div className="bg-indigo-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <FaListAlt className="w-6 h-6 text-indigo-600" />
-            </div>
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">Call List</h4>
-            <p className="text-gray-600 mb-4">
-              View and manage all your conference calls
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded">History</span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">Management</span>
-            </div>
-          </div>
-
-          {/* View Answers */}
-          <div 
-            onClick={() => navigateTo("/viewAnswers")}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-teal-500"
-          >
-            <div className="bg-teal-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <FaEye className="w-6 h-6 text-teal-600" />
-            </div>
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">View Answers</h4>
-            <p className="text-gray-600 mb-4">
-              Review submitted answers and participant responses
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded">Analytics</span>
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded">Insights</span>
-            </div>
-          </div>
-
-          {/* Moderator */}
-          <div 
-            onClick={() => navigateTo("/moderator")}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-orange-500"
-          >
-            <div className="bg-orange-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <FaUsers className="w-6 h-6 text-orange-600" />
-            </div>
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">Moderator</h4>
-            <p className="text-gray-600 mb-4">
-              Moderate discussions and manage meeting flow
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded">Control</span>
-              <span className="px-2 py-1 bg-red-100 text-red-700 rounded">Moderation</span>
-            </div>
+            
           </div>
         </div>
       </section>

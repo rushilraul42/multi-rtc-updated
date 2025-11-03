@@ -122,7 +122,7 @@ const TranscriptMeet = () => {
   const { generateShortId, servers } = useWebRTCHelpers();
 
   // Initialize action hooks
-  const { hangup } = useHangup(
+  const { hangup: originalHangup } = useHangup(
     callId,
     myIndex,
     pcs,
@@ -131,8 +131,61 @@ const TranscriptMeet = () => {
     setPcs
   );
 
+  // Enhanced hangup for host - redirects to home
+  const hangup = async () => {
+    await originalHangup();
+    toast.success("Meeting ended");
+    router.push("/");
+  };
+
+  // Screenshot functionality
+  const takeScreenshot = () => {
+    if (!webcamVideoRef.current) {
+      toast.error("No video available to capture");
+      return;
+    }
+
+    try {
+      const video = webcamVideoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        toast.error("Failed to create canvas context");
+        return;
+      }
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          toast.error("Failed to create image");
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `screenshot-${timestamp}.png`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast.success("Screenshot saved!");
+      }, 'image/png');
+    } catch (error) {
+      console.error("Screenshot error:", error);
+      toast.error("Failed to take screenshot");
+    }
+  };
+
   // Screen share hooks
-  const { handleScreenShare } = useScreenShare(
+  const { handleScreenShare: originalHandleScreenShare } = useScreenShare(
     isScreenSharing,
     setIsScreenSharing,
     screenStreamFeed,
@@ -147,6 +200,29 @@ const TranscriptMeet = () => {
     remoteVideoRefs,
     setRemoteVideoRefs
   );
+
+  // Wrapper for screen share with user feedback
+  const handleScreenShare = async () => {
+    if (isScreenSharing) {
+      // Stopping screen share
+      await originalHandleScreenShare();
+      toast.success("Screen sharing stopped");
+    } else {
+      // Starting screen share
+      const wasSharing = isScreenSharing;
+      await originalHandleScreenShare();
+      
+      // Check if screen sharing started successfully
+      setTimeout(() => {
+        if (!wasSharing && !isScreenSharing) {
+          // Screen share failed to start
+          toast.error("Screen sharing cancelled or denied");
+        } else if (!wasSharing && isScreenSharing) {
+          toast.success("Screen sharing started");
+        }
+      }, 500); // Small delay to let state update
+    }
+  };
 
   const { handleCallButtonClick } = useHandleCallButtonClick(
     setInCall,
@@ -331,8 +407,9 @@ const TranscriptMeet = () => {
 
                 <button
                   disabled={!inCall}
+                  onClick={takeScreenshot}
                   className="p-3 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Screenshot"
+                  title="Take Screenshot"
                 >
                   <FaCamera size={18} />
                 </button>

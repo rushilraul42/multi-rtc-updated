@@ -106,7 +106,7 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
   const { user, loading } = useAuth();
 
   // Initialize action hooks
-  const { hangup } = useHangup(
+  const { hangup: originalHangup } = useHangup(
     callId,
     myIndex,
     pcs,
@@ -114,6 +114,30 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
     setRemoteVideoRefs,
     setPcs
   );
+
+  // Enhanced hangup for participants - closes the tab/window
+  const hangup = async () => {
+    await originalHangup();
+    toast.success("Left the meeting");
+    
+    // Try to close the tab/window
+    // Note: This only works if the window was opened by JavaScript
+    // Otherwise, it will just show a message
+    if (window.opener) {
+      window.close();
+    } else {
+      // If we can't close the window, show a message
+      toast("You can now close this tab", { 
+        duration: 5000,
+        icon: "👋"
+      });
+      
+      // Optionally redirect to a goodbye page or home after a delay
+      setTimeout(() => {
+        window.location.href = "about:blank";
+      }, 2000);
+    }
+  };
 
   const { handleAnswerButtonClick } = useHandleAnswerButtonClickMeet(
     setInCall,
@@ -150,7 +174,7 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
   );
 
   // Initialize screen share functionality
-  const { startScreenShare, stopScreenShare, handleScreenShare } = useScreenShare(
+  const { startScreenShare, stopScreenShare, handleScreenShare: originalHandleScreenShare } = useScreenShare(
     isScreenSharing,
     setIsScreenSharing,
     screenStreamFeed,
@@ -165,6 +189,29 @@ const PageContent: React.FC<{ myName: string }> = ({ myName }) => {
     remoteVideoRefs,
     setRemoteVideoRefs
   );
+
+  // Wrapper for screen share with user feedback
+  const handleScreenShare = async () => {
+    if (isScreenSharing) {
+      // Stopping screen share
+      await originalHandleScreenShare();
+      toast.success("Screen sharing stopped");
+    } else {
+      // Starting screen share
+      const wasSharing = isScreenSharing;
+      await originalHandleScreenShare();
+      
+      // Check if screen sharing started successfully
+      setTimeout(() => {
+        if (!wasSharing && !isScreenSharing) {
+          // Screen share failed to start
+          toast.error("Screen sharing cancelled or denied");
+        } else if (!wasSharing && isScreenSharing) {
+          toast.success("Screen sharing started");
+        }
+      }, 500); // Small delay to let state update
+    }
+  };
 
   // Initialize start webcam
   const { startWebcam } = useStartWebcam(
